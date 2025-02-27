@@ -1,21 +1,27 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, shallowRef } from "vue";
 
 
-import { check } from '@tauri-apps/plugin-updater';
+import { check, Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 const downloaded = ref(0);
 const contentLength = ref<any>("");
+import {version} from './../package.json'
+
+
+const update = shallowRef<Update | null>(null) 
 
 onMounted(async () => {
-  const update = await check();
-  if (update) {
+  update.value = await check();
+})
+
+async function checkAndDownloadUpdates(){
+  if (update.value) {
     console.log(
-      `found update ${update.version} from ${update.date} with notes ${update.body}`
+      `found update ${update.value.version} from ${update.value.date} with notes ${update.value.body}`
     );
 
-    // alternatively we could also call update.download() and update.install() separately
-    await update.downloadAndInstall((event) => {
+    await update.value.download((event) => {
       switch (event.event) {
         case 'Started':
           contentLength.value = event.data.contentLength;
@@ -30,14 +36,16 @@ onMounted(async () => {
           break;
       }
     });
-  
     
   }
+}
 
-})
 
-async function restartApp(){
-  await relaunch();
+async function IntallAndRestartApp(){
+  if (update.value) {
+    await update.value.install()
+    await relaunch();
+  }
 }
 
 
@@ -45,11 +53,17 @@ async function restartApp(){
 
 <template>
   <main class="container">
-    <h1>Tauri In App update Demo + Vue V5</h1>
-    {{ downloaded, contentLength }}
+    <h1>Tauri In App update Demo + Vue {{version}}</h1>
     
-    <button @click="restartApp">
-        Restartar app
+    <button @click="checkAndDownloadUpdates">
+        Procurar atualizações
+    </button>
+      <p v-if="downloaded">
+        Baixando:{{ downloaded }}/ {{contentLength}}
+      </p>
+
+    <button @click="IntallAndRestartApp">
+        Instalar atualizações
     </button>
   </main>
 </template>
