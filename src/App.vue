@@ -10,14 +10,47 @@ async function greet() {
   greetMsg.value = await invoke("greet", { name: name.value });
 }
 
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
+const downloaded = ref(0);
+const contentLength = ref<any>("");
 
+onMounted(async () => {
+  const update = await check();
+  if (update) {
+    console.log(
+      `found update ${update.version} from ${update.date} with notes ${update.body}`
+    );
+
+    // alternatively we could also call update.download() and update.install() separately
+    await update.downloadAndInstall((event) => {
+      switch (event.event) {
+        case 'Started':
+          contentLength.value = event.data.contentLength;
+          console.log(`started downloading ${event.data.contentLength} bytes`);
+          break;
+        case 'Progress':
+          downloaded.value += event.data.chunkLength;
+          console.log(`downloaded ${downloaded} from ${contentLength}`);
+          break;
+        case 'Finished':
+          console.log('download finished');
+          break;
+      }
+    });
+  
+    console.log('update installed');
+    await relaunch();
+  }
+
+})
 
 </script>
 
 <template>
   <main class="container">
     <h1>Welcome to Tauri + Vue V2</h1>
-
+    {{ downloaded, contentLength }}
     <div class="row">
       <a href="https://vitejs.dev" target="_blank">
         <img src="/vite.svg" class="logo vite" alt="Vite logo" />
